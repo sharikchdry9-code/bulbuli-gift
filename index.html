@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FOREVER US — Ultra-Realistic 3D Experience</title>
+  
+  <!-- Tailwind CSS & FontAwesome -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400;600;800&family=Montserrat:wght@300;400;500;600&family=Great+Vibes&display=swap" rel="stylesheet">
+  
+  <!-- Three.js & Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <style>
+    :root {
+      --bg-dark: #05020a;
+      --gold-primary: #d4af37;
+      --gold-light: #f3e5ab;
+      --rose-dark: #4a0e17;
+      --rose-glow: #e63946;
+      --glass-border: rgba(212, 175, 55, 0.25);
+      --glass-bg: rgba(12, 6, 20, 0.75);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%; height: 100%;
+      overflow-x: hidden;
+      background-color: var(--bg-dark);
+      color: #eaeaea;
+      font-family: 'Montserrat', sans-serif;
+    }
+
+    .font-cinzel-dec { font-family: 'Cinzel Decorative', serif; }
+    .font-cinzel { font-family: 'Cinzel', serif; }
+    .font-handwriting { font-family: 'Great Vibes', cursive; }
+
+    #canvas-container {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      z-index: 1; pointer-events: auto;
+    }
+
+    .glass-card {
+      background: var(--glass-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8), 0 0 15px rgba(212, 175, 55, 0.1);
+      border-radius: 16px;
+    }
+
+    .gold-text {
+      background: linear-gradient(135deg, #fff2a3 0%, #d4af37 50%, #aa7c11 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .gold-btn {
+      background: linear-gradient(135deg, #d4af37 0%, #8a640f 100%);
+      color: #000; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;
+      transition: all 0.4s ease;
+      box-shadow: 0 0 20px rgba(212, 175, 55, 0.3);
+    }
+    .gold-btn:hover {
+      box-shadow: 0 0 35px rgba(212, 175, 55, 0.7);
+      transform: translateY(-2px);
+      filter: brightness(1.2);
+    }
+
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: rgba(0,0,0,0.5); }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--gold-primary); border-radius: 3px; }
+
+    .envelope-wrapper {
+      perspective: 1000px;
+    }
+    .envelope {
+      width: 320px; height: 220px; background: #2a080c; border: 2px solid var(--gold-primary);
+      position: relative; transform-style: preserve-3d; transition: transform 0.8s ease;
+      box-shadow: 0 15px 35px rgba(0,0,0,0.9);
+    }
+    .envelope .lid {
+      position: absolute; top: 0; left: 0; width: 0; height: 0;
+      border-left: 160px solid transparent; border-right: 160px solid transparent;
+      border-top: 120px solid #4a0e17; transform-origin: top; transition: transform 0.6s ease 0.2s; z-index: 3;
+    }
+    .envelope.open .lid {
+      transform: rotateX(180deg);
+    }
+    .envelope .letter {
+      position: absolute; bottom: 10px; left: 10px; right: 10px; top: 10px;
+      background: #fdf6e3; color: #2c1810; padding: 20px; border-radius: 4px;
+      transition: transform 0.6s ease 0.4s; z-index: 2; overflow-y: auto;
+    }
+    .envelope.open .letter {
+      transform: translateY(-120px) scale(1.05);
+      z-index: 5;
+    }
+
+    .glitch-subtle {
+      animation: pulseGlow 3s infinite alternate;
+    }
+    @keyframes pulseGlow {
+      0% { text-shadow: 0 0 10px rgba(212, 175, 55, 0.2); }
+      100% { text-shadow: 0 0 25px rgba(212, 175, 55, 0.8), 0 0 40px rgba(230, 57, 70, 0.4); }
+    }
+  </style>
+</head>
+<body class="custom-scrollbar">
+
+  <div id="canvas-container"></div>
+
+  <!-- UI Overlay -->
+  <div id="ui-layer" class="relative z-10 w-full min-h-screen pointer-events-none">
+
+    <!-- Header Navigation -->
+    <header class="fixed top-0 left-0 w-full p-6 flex justify-between items-center z-40 backdrop-blur-md bg-black/30 border-b border-yellow-500/10 pointer-events-auto">
+      <div class="flex items-center space-x-3">
+        <i class="fa-solid fa-gem text-yellow-500 text-xl animate-pulse"></i>
+        <h1 class="font-cinzel-dec font-bold text-lg md:text-xl tracking-wider gold-text" id="site-title">FOREVER US</h1>
+      </div>
+      <nav class="hidden md:flex space-x-8 text-xs tracking-widest uppercase font-cinzel">
+        <button onclick="navigateTo('intro')" class="hover:text-yellow-400 transition-colors">Home</button>
+        <button onclick="navigateTo('letter')" class="hover:text-yellow-400 transition-colors">Love Letter</button>
+        <button onclick="navigateTo('story')" class="hover:text-yellow-400 transition-colors">Our Story</button>
+        <button onclick="navigateTo('gallery')" class="hover:text-yellow-400 transition-colors">Gallery</button>
+        <button onclick="navigateTo('gift')" class="hover:text-yellow-400 transition-colors">Vouchers</button>
+      </nav>
+      <div class="flex items-center space-x-4">
+        <button id="audio-toggle" onclick="toggleAudio()" class="w-10 h-10 rounded-full border border-yellow-500/30 flex items-center justify-center text-yellow-400 hover:bg-yellow-500/10 transition">
+          <i class="fa-solid fa-music"></i>
+        </button>
+        <button onclick="openAdminModal()" class="w-10 h-10 rounded-full border border-yellow-500/30 flex items-center justify-center text-yellow-400 hover:bg-yellow-500/10 transition" title="Admin Panel">
+          <i class="fa-solid fa-user-gear"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- SECTION 1: Intro Overlay -->
+    <section id="sec-intro" class="min-h-screen flex flex-col justify-center items-center text-center p-6 pointer-events-auto relative">
+      <div class="max-w-3xl glass-card p-8 md:p-14 border border-yellow-500/30 glitch-subtle">
+        <p class="font-cinzel text-xs md:text-sm text-yellow-400 tracking-widest uppercase mb-4" id="site-tagline">EVERY MEMORY HAS A STORY. EVERY MOMENT IS FOREVER.</p>
+        <h2 class="font-cinzel-dec text-4xl md:text-6xl font-black mb-6 gold-text" id="welcome-title">FOREVER US</h2>
+        <p class="text-sm md:text-base text-gray-300 font-light mb-8 leading-relaxed" id="welcome-msg">
+          Welcome to our private digital universe. A realistic 3D space crafted to hold our memories, promises, and eternal love.
+        </p>
+        <button onclick="navigateTo('letter')" class="gold-btn px-8 py-4 rounded-full text-xs md:text-sm font-bold tracking-widest shadow-2xl">
+          ENTER OUR WORLD <i class="fa-solid fa-arrow-right ml-2"></i>
+        </button>
+      </div>
+    </section>
+
+    <!-- SECTION 2: Secret 3D Love Letter -->
+    <section id="sec-letter" class="min-h-screen flex flex-col justify-center items-center p-6 pointer-events-auto hidden">
+      <div class="text-center mb-8">
+        <h2 class="font-cinzel-dec text-3xl md:text-4xl gold-text mb-2">Secret Love Letter</h2>
+        <p class="text-xs text-yellow-500/70 font-cinzel tracking-widest">TAP THE SEAL TO OPEN MY HEART</p>
+      </div>
+      <div class="envelope-wrapper my-8">
+        <div id="envelope" class="envelope cursor-pointer" onclick="openEnvelope()">
+          <div class="lid"></div>
+          <div class="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+            <div id="wax-seal" class="w-14 h-14 bg-red-700 rounded-full border-2 border-yellow-400 flex items-center justify-center shadow-2xl">
+              <i class="fa-solid fa-heart text-yellow-300 text-xl"></i>
+            </div>
+          </div>
+          <div class="letter custom-scrollbar">
+            <h3 class="font-handwriting text-2xl text-red-900 mb-2" id="letter-heading">My Dearest Bulbuli,</h3>
+            <p class="text-xs md:text-sm leading-relaxed text-gray-800 font-serif" id="letter-body">
+              Every day with you feels like a beautiful dream. You bring light, laughter, and endless joy to my life. This 3D world is just a small token of my infinite love for you. Always and forever yours.
+            </p>
+            <p class="font-handwriting text-xl text-red-900 mt-4 text-right" id="letter-sign">— Forever Yours</p>
+          </div>
+        </div>
+      </div>
+      <div class="mt-8">
+        <button onclick="navigateTo('story')" class="gold-btn px-6 py-3 rounded-full text-xs">
+          CONTINUE TO OUR STORY <i class="fa-solid fa-chevron-right ml-2"></i>
+        </button>
+      </div>
+    </section>
+
+    <!-- SECTION 3: Interactive Love Story Timeline -->
+    <section id="sec-story" class="min-h-screen flex flex-col justify-center items-center p-6 pointer-events-auto hidden">
+      <div class="max-w-4xl w-full">
+        <div class="text-center mb-12">
+          <h2 class="font-cinzel-dec text-3xl md:text-5xl gold-text mb-2">Our Love Story</h2>
+          <p class="text-xs text-yellow-500/70 font-cinzel tracking-widest">TIMELINE OF OUR BEAUTIFUL JOURNEY</p>
+        </div>
+
+        <div class="relative border-l-2 border-yellow-500/30 ml-4 md:ml-32 space-y-8" id="timeline-container">
+          <!-- Dynamically populated timeline nodes -->
+        </div>
+
+        <div class="text-center mt-12">
+          <button onclick="navigateTo('gallery')" class="gold-btn px-6 py-3 rounded-full text-xs">
+            VIEW MEMORY GALLERY <i class="fa-solid fa-images ml-2"></i>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 4: 3D Memory Gallery -->
+    <section id="sec-gallery" class="min-h-screen flex flex-col justify-center items-center p-6 pointer-events-auto hidden">
+      <div class="max-w-6xl w-full">
+        <div class="text-center mb-12">
+          <h2 class="font-cinzel-dec text-3xl md:text-5xl gold-text mb-2">3D Memory Gallery</h2>
+          <p class="text-xs text-yellow-500/70 font-cinzel tracking-widest">CAPTURED MOMENTS IN TIME</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="gallery-container">
+          <!-- Dynamically populated photo cards -->
+        </div>
+
+        <div class="text-center mt-12">
+          <button onclick="navigateTo('gift')" class="gold-btn px-6 py-3 rounded-full text-xs">
+            CLAIM YOUR GIFTS <i class="fa-solid fa-gift ml-2"></i>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 5: Real Digital Voucher Claim System -->
+    <section id="sec-gift" class="min-h-screen flex flex-col justify-center items-center p-6 pointer-events-auto hidden">
+      <div class="max-w-4xl w-full">
+        <div class="text-center mb-12">
+          <h2 class="font-cinzel-dec text-3xl md:text-5xl gold-text mb-2">Digital Gift Vouchers</h2>
+          <p class="text-xs text-yellow-500/70 font-cinzel tracking-widest">EXCLUSIVE INR REWARDS & PROMISES</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="vouchers-container">
+          <!-- Dynamically populated vouchers -->
+        </div>
+
+        <!-- Verification Disclaimer -->
+        <div class="mt-8 p-4 glass-card border border-yellow-500/20 text-center text-xs text-gray-400">
+          <i class="fa-solid fa-shield-halved text-yellow-500 mr-2"></i>
+          <span>Official Digital Claim System: Each voucher code has a unique cryptographic hash stored securely.</span>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ADMIN PANEL MODAL -->
+  <div id="admin-modal" class="fixed inset-0 bg-black/90 backdrop-blur-xl z-50 flex items-center justify-center p-4 hidden">
+    <div class="glass-card max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 md:p-8 custom-scrollbar border-yellow-500/40">
+      <div class="flex justify-between items-center mb-6 pb-4 border-b border-yellow-500/20">
+        <h3 class="font-cinzel-dec text-xl gold-text"><i class="fa-solid fa-sliders mr-2"></i> Admin Portal</h3>
+        <button onclick="closeAdminModal()" class="text-gray-400 hover:text-white text-xl"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <!-- Auth Pin Screen -->
+      <div id="admin-auth" class="space-y-4">
+        <p class="text-xs text-gray-300">Enter Admin Passcode to manage website content, photos, and gift vouchers.</p>
+        <input type="password" id="admin-pin" placeholder="Enter Security Pin (default: forever2026)" class="w-full bg-black/50 border border-yellow-500/30 rounded p-3 text-sm focus:outline-none focus:border-yellow-400">
+        <button onclick="verifyAdminPin()" class="gold-btn w-full py-3 rounded text-xs">AUTHENTICATE</button>
+      </div>
+
+      <!-- Admin Management Tabs -->
+      <div id="admin-content" class="hidden space-y-6">
+        <div class="flex space-x-2 border-b border-yellow-500/20 pb-2 text-xs font-cinzel">
+          <button onclick="switchAdminTab('general')" class="px-3 py-1 bg-yellow-500/20 rounded border border-yellow-500/40 text-yellow-300">General</button>
+          <button onclick="switchAdminTab('letter')" class="px-3 py-1 bg-black/40 rounded border border-yellow-500/20 text-gray-300">Love Letter</button>
+          <button onclick="switchAdminTab('timeline')" class="px-3 py-1 bg-black/40 rounded border border-yellow-500/20 text-gray-300">Story</button>
+          <button onclick="switchAdminTab('gallery')" class="px-3 py-1 bg-black/40 rounded border border-yellow-500/20 text-gray-300">Gallery</button>
+          <button onclick="switchAdminTab('vouchers')" class="px-3 py-1 bg-black/40 rounded border border-yellow-500/20 text-gray-300">Vouchers</button>
+        </div>
+
+        <!-- General Tab -->
+        <div id="tab-general" class="admin-tab space-y-4">
+          <div>
+            <label class="text-xs text-yellow-400 font-cinzel">Website Title</label>
+            <input type="text" id="cfg-title" class="w-full bg-black/50 border border-yellow-500/30 rounded p-2 text-xs mt-1">
+          </div>
+          <div>
+            <label class="text-xs text-yellow-400 font-cinzel">Tagline</label>
+            <input type="text" id="cfg-tagline" class="w-full bg-black/50 border border-yellow-500/30 rounded p-2 text-xs mt-1">
+          </div>
+          <div>
+            <label class="text-xs text-yellow-400 font-cinzel">Welcome Message</label>
+            <textarea id="cfg-welcome" rows="3" class="w-full bg-black/50 border border-yellow-500/30 rounded p-2 text-xs mt-1"></textarea>
+          </div>
+          <button onclick="saveGeneralConfig()" class="gold-btn px-4 py-2 rounded text-xs">Save Branding Settings</button>
+        </div>
+
+        <!-- Love Letter Tab -->
+        <div id="tab-letter" class="admin-tab hidden space-y-4">
+          <div>
+            <label class="text-xs text-yellow-400 font-cinzel">Letter Heading</label>
+            <input type="text" id="cfg-letter-heading" class="w-full bg-black/50 border border-yellow-500/30 rounded p-2 text-xs mt-1">
+          </div>
+          <div>
+            <label class="text-xs text-yellow-400 font-cinzel">Letter Body</label>
+            <textarea id="cfg-letter-body" rows="5" class="w-full bg-black/50 border border-yellow-500/30 rounded p-2 text-xs mt-1"></textarea>
+          </div>
+          <div>
+            <label class="text-xs text-yellow-400 font-cinzel">Signature</label>
+            <input type="text" id="cfg-letter-sign" class="w-full bg-black/50 border border-yellow-500/30 rounded p-2 text-xs mt-1">
+          </div>
+          <button onclick="saveLetterConfig()" class="gold-btn px-4 py-2 rounded text-xs">Save Love Letter</button>
+        </div>
+
+        <!-- Vouchers Tab -->
+        <div id="tab-vouchers" class="admin-tab hidden space-y-4">
+          <h4 class="text-xs font-cinzel text-yellow-400">Create New INR Gift Voucher</h4>
+          <div class="grid grid-cols-2 gap-2">
+            <input type="text" id="vch-title" placeholder="Title (e.g. Shopping Spree)" class="bg-black/50 border border-yellow-500/30 rounded p-2 text-xs">
+            <input type="number" id="vch-amount" placeholder="Amount in INR (₹)" class="bg-black/50 border border-yellow-500/30 rounded p-2 text-xs">
+          </div>
+          <textarea id="vch-desc" placeholder="Special message or instructions..." rows="2" class="w-full bg-black/50 border border-yellow-500/30 rounded p-2 text-xs"></textarea>
+          <button onclick="addVoucher()" class="gold-btn px-4 py-2 rounded text-xs">Generate Voucher</button>
+
+          <h4 class="text-xs font-cinzel text-yellow-400 mt-6">Existing Vouchers</h4>
+          <div id="admin-vouchers-list" class="space-y-2 max-h-40 overflow-y-auto"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT LOGIC -->
+  <script>
+    /* ==========================================================================
+       1. DATA STRUCTURE & LOCAL STORAGE ENGINE
+       ========================================================================== */
+    const DEFAULT_DATA = {
+      config: {
+        title: "FOREVER US",
+        tagline: "EVERY MEMORY HAS A STORY. EVERY MOMENT IS FOREVER.",
+        welcome: "Welcome to our private digital universe. A realistic 3D space crafted to hold our memories, promises, and eternal love.",
+        letterHeading: "My Dearest Bulbuli,",
+        letterBody: "Every single day spent with you feels like a page from a magical romance novel. You bring boundless warmth, joy, and peace into my world. This 3D universe is a small reflection of the infinite love I carry for you in my heart. Happy Diwali my love!",
+        letterSign: "— Forever Yours, Dev"
+      },
+      story: [
+        { date: "Day We Met", title: "The Spark", desc: "The unforgettable moment our paths crossed and my world changed forever." },
+        { date: "First Date", title: "Endless Conversations", desc: "Talking for hours and realizing you were the missing piece to my soul." },
+        { date: "Our Wedding", title: "Forever Bound", desc: "Promising a lifetime of happiness, togetherness, and unwavering support." }
+      ],
+      gallery: [
+        { title: "Diwali Glow", url: "https://images.unsplash.com/photo-1514222709107-a180c68d72b4?auto=format&fit=crop&w=600&q=80", caption: "Your smile lights up my entire world brighter than any diya." },
+        { title: "Romantic Evening", url: "https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&w=600&q=80", caption: "Hand in hand, building our dream life step by step." },
+        { title: "Forever Love", url: "https://images.unsplash.com/photo-1522673607200-164d1b6ce486?auto=format&fit=crop&w=600&q=80", caption: "Every moment with you is a priceless treasure." }
+      ],
+      vouchers: [
+        { id: "VCH-1001", code: "BULBULI-DIWALI-5000", title: "Diwali Shopping Spree", amount: 5000, desc: "Valid for any ethnic wear or jewelry of your choice!", claimed: false },
+        { id: "VCH-1002", code: "ROMANTIC-DINNER-2000", title: "Candlelight Dinner Date", amount: 2500, desc: "Redeemable for a luxury 5-star dinner night out together.", claimed: false }
+      ]
+    };
+
+    let appData = JSON.parse(localStorage.getItem('forever_us_db')) || DEFAULT_DATA;
+
+    function saveData() {
+      localStorage.setItem('forever_us_db', JSON.stringify(appData));
+      renderUI();
+    }
+
+    /* ==========================================================================
+       2. THREE.JS REALISTIC 3D SCENE & ENGINE
+       ========================================================================== */
+    let scene, camera, renderer, petals = [], lights = [];
+
+    function init3D() {
+      const container = document.getElementById('canvas-container');
+      
+      scene = new THREE.Scene();
+      scene.fog = new THREE.FogExp2(0x05020a, 0.015);
+
+      camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.set(0, 2, 10);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.appendChild(renderer.domElement);
+
+      // Lighting
+      const ambientLight = new THREE.AmbientLight(0x2a0e1a, 1.5);
+      scene.add(ambientLight);
+
+      const moonLight = new THREE.DirectionalLight(0xd4af37, 2.5);
+      moonLight.position.set(10, 20, 10);
+      moonLight.castShadow = true;
+      scene.add(moonLight);
+
+      const pointLight = new THREE.PointLight(0xe63946, 3, 20);
+      pointLight.position.set(0, 1, 3);
+      scene.add(pointLight);
+
+      // Ground Reflection Pathway
+      const groundGeo = new THREE.PlaneGeometry(100, 100);
+      const groundMat = new THREE.MeshStandardMaterial({ color: 0x0a0410, roughness: 0.2, metalness: 0.8 });
+      const ground = new THREE.Mesh(groundGeo, groundMat);
+      ground.rotation.x = -Math.PI / 2;
+      ground.position.y = -1;
+      ground.receiveShadow = true;
+      scene.add(ground);
+
+      // Floating Particle Rose Petals
+      const petalGeo = new THREE.ConeGeometry(0.1, 0.02, 5);
+      const petalMat = new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.4 });
+
+      for(let i = 0; i < 200; i++) {
+        const petal = new THREE.Mesh(petalGeo, petalMat);
+        petal.position.set(
+          (Math.random() - 0.5) * 30,
+          Math.random() * 15,
+          (Math.random() - 0.5) * 30
+        );
+        petal.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+        scene.add(petal);
+        petals.push({
+          mesh: petal,
+          speedY: 0.01 + Math.random() * 0.02,
+          rotSpeed: Math.random() * 0.02
+        });
+      }
+
+      window.addEventListener('resize', onWindowResize);
+      animate();
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      // Animate Petals
+      petals.forEach(p => {
+        p.mesh.position.y -= p.speedY;
+        p.mesh.rotation.x += p.rotSpeed;
+        p.mesh.rotation.y += p.rotSpeed;
+        if(p.mesh.position.y < -1) p.mesh.position.y = 15;
+      });
+
+      // Subtle Camera Floating
+      camera.position.x = Math.sin(Date.now() * 0.0005) * 0.5;
+      camera.position.y = 2 + Math.cos(Date.now() * 0.0005) * 0.2;
+
+      renderer.render(scene, camera);
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    /* ==========================================================================
+       3. NAVIGATION & UI RENDERING
+       ========================================================================== */
+    function navigateTo(secId) {
+      document.querySelectorAll('#ui-layer > section').forEach(sec => sec.classList.add('hidden'));
+      const target = document.getElementById(`sec-${secId}`);
+      if(target) target.classList.remove('hidden');
+
+      // Camera transitions
+      if(secId === 'intro') gsap.to(camera.position, { z: 10, y: 2, duration: 2 });
+      if(secId === 'letter') gsap.to(camera.position, { z: 5, y: 1, duration: 2 });
+      if(secId === 'story') gsap.to(camera.position, { z: 8, y: 3, duration: 2 });
+      if(secId === 'gallery') gsap.to(camera.position, { z: 12, y: 4, duration: 2 });
+      if(secId === 'gift') gsap.to(camera.position, { z: 6, y: 1.5, duration: 2 });
+    }
+
+    function renderUI() {
+      // Branding Content
+      document.getElementById('site-title').innerText = appData.config.title;
+      document.getElementById('site-tagline').innerText = appData.config.tagline;
+      document.getElementById('welcome-title').innerText = appData.config.title;
+      document.getElementById('welcome-msg').innerText = appData.config.welcome;
+
+      // Letter Content
+      document.getElementById('letter-heading').innerText = appData.config.letterHeading;
+      document.getElementById('letter-body').innerText = appData.config.letterBody;
+      document.getElementById('letter-sign').innerText = appData.config.letterSign;
+
+      // Timeline Rendering
+      const timelineCont = document.getElementById('timeline-container');
+      timelineCont.innerHTML = appData.story.map(item => `
+        <div class="relative pl-6 md:pl-8">
+          <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-yellow-500 border-4 border-black"></div>
+          <span class="text-xs font-cinzel text-yellow-400 tracking-widest uppercase">${item.date}</span>
+          <h3 class="font-cinzel text-lg font-bold text-white mt-1">${item.title}</h3>
+          <p class="text-xs text-gray-300 mt-2 leading-relaxed">${item.desc}</p>
+        </div>
+      `).join('');
+
+      // Gallery Rendering
+      const galleryCont = document.getElementById('gallery-container');
+      galleryCont.innerHTML = appData.gallery.map(item => `
+        <div class="glass-card overflow-hidden p-3 border border-yellow-500/20 group hover:border-yellow-500/60 transition">
+          <div class="h-48 overflow-hidden rounded-lg mb-3">
+            <img src="${item.url}" alt="${item.title}" class="w-full h-full object-cover group-hover:scale-110 transition duration-500">
+          </div>
+          <h4 class="font-cinzel text-sm font-bold text-yellow-400">${item.title}</h4>
+          <p class="text-xs text-gray-300 mt-1">${item.caption}</p>
+        </div>
+      `).join('');
+
+      // Vouchers Rendering
+      const vouchersCont = document.getElementById('vouchers-container');
+      vouchersCont.innerHTML = appData.vouchers.map(v => `
+        <div class="glass-card p-6 border ${v.claimed ? 'border-green-500/40' : 'border-yellow-500/40'} relative">
+          <div class="flex justify-between items-start mb-4">
+            <div>
+              <span class="text-[10px] font-cinzel text-yellow-400 tracking-widest">${v.id}</span>
+              <h3 class="font-cinzel text-lg font-bold text-white">${v.title}</h3>
+            </div>
+            <span class="text-xl font-bold gold-text">₹${v.amount.toLocaleString('en-IN')}</span>
+          </div>
+          <p class="text-xs text-gray-300 mb-6">${v.desc}</p>
+          <div class="flex justify-between items-center pt-4 border-t border-yellow-500/10">
+            <span class="text-[10px] font-mono text-gray-400">CODE: ${v.code}</span>
+            ${v.claimed ? `
+              <span class="px-3 py-1 bg-green-500/20 text-green-400 rounded text-xs border border-green-500/30 font-bold">
+                <i class="fa-solid fa-check-circle mr-1"></i> CLAIMED
+              </span>
+            ` : `
+              <button onclick="claimVoucher('${v.id}')" class="gold-btn px-4 py-2 rounded text-xs">
+                CLAIM VOUCHER
+              </button>
+            `}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function openEnvelope() {
+      const env = document.getElementById('envelope');
+      env.classList.toggle('open');
+      if(env.classList.contains('open')) {
+        confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
+      }
+    }
+
+    function claimVoucher(id) {
+      const v = appData.vouchers.find(x => x.id === id);
+      if(v && !v.claimed) {
+        v.claimed = true;
+        saveData();
+        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+      }
+    }
+
+    /* ==========================================================================
+       4. AUDIO AMBIENCE GENERATOR (Web Audio API)
+       ========================================================================== */
+    let audioCtx, isAudioPlaying = false;
+
+    function toggleAudio() {
+      if(!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        createAmbientSound();
+      }
+      if(audioCtx.state === 'suspended') {
+        audioCtx.resume();
+        isAudioPlaying = true;
+      } else if(audioCtx.state === 'running') {
+        audioCtx.suspend();
+        isAudioPlaying = false;
+      }
+      document.getElementById('audio-toggle').classList.toggle('bg-yellow-500/20', isAudioPlaying);
+    }
+
+    function createAmbientSound() {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(220, audioCtx.currentTime); // Soft A4 pitch
+      gain.gain.setValueAtTime(0.02, audioCtx.currentTime);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+    }
+
+    /* ==========================================================================
+       5. ADMIN PANEL CONTROLLER
+       ========================================================================== */
+    function openAdminModal() {
+      document.getElementById('admin-modal').classList.remove('hidden');
+    }
+    function closeAdminModal() {
+      document.getElementById('admin-modal').classList.add('hidden');
+    }
+
+    function verifyAdminPin() {
+      const pin = document.getElementById('admin-pin').value;
+      if(pin === 'forever2026' || pin === 'admin') {
+        document.getElementById('admin-auth').classList.add('hidden');
+        document.getElementById('admin-content').classList.remove('hidden');
+        populateAdminInputs();
+      } else {
+        alert('Incorrect Passcode!');
+      }
+    }
+
+    function switchAdminTab(tab) {
+      document.querySelectorAll('.admin-tab').forEach(t => t.classList.add('hidden'));
+      document.getElementById(`tab-${tab}`).classList.remove('hidden');
+    }
+
+    function populateAdminInputs() {
+      document.getElementById('cfg-title').value = appData.config.title;
+      document.getElementById('cfg-tagline').value = appData.config.tagline;
+      document.getElementById('cfg-welcome').value = appData.config.welcome;
+      document.getElementById('cfg-letter-heading').value = appData.config.letterHeading;
+      document.getElementById('cfg-letter-body').value = appData.config.letterBody;
+      document.getElementById('cfg-letter-sign').value = appData.config.letterSign;
+    }
+
+    function saveGeneralConfig() {
+      appData.config.title = document.getElementById('cfg-title').value;
+      appData.config.tagline = document.getElementById('cfg-tagline').value;
+      appData.config.welcome = document.getElementById('cfg-welcome').value;
+      saveData();
+      alert('Branding updated successfully!');
+    }
+
+    function saveLetterConfig() {
+      appData.config.letterHeading = document.getElementById('cfg-letter-heading').value;
+      appData.config.letterBody = document.getElementById('cfg-letter-body').value;
+      appData.config.letterSign = document.getElementById('cfg-letter-sign').value;
+      saveData();
+      alert('Love letter updated!');
+    }
+
+    function addVoucher() {
+      const title = document.getElementById('vch-title').value;
+      const amount = parseInt(document.getElementById('vch-amount').value);
+      const desc = document.getElementById('vch-desc').value;
+
+      if(title && amount) {
+        const newVch = {
+          id: `VCH-${Math.floor(1000 + Math.random() * 9000)}`,
+          code: `LOVE-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+          title: title,
+          amount: amount,
+          desc: desc,
+          claimed: false
+        };
+        appData.vouchers.push(newVch);
+        saveData();
+        alert('Voucher generated successfully!');
+      }
+    }
+
+    // INITIALIZATION ON LOAD
+    window.onload = () => {
+      init3D();
+      renderUI();
+    };
+  </script>
+</body>
+</html>
